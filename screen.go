@@ -49,10 +49,14 @@ type Screen struct {
 	Border *Border
 
 	CellsAlive int
+	
+	PausedTime time.Duration
 
 }
 
 func (s *Screen) PauseGame( eventChan chan tcell.Event) {
+
+	start := time.Now()
 
 	for {
 		select {				
@@ -65,6 +69,7 @@ func (s *Screen) PauseGame( eventChan chan tcell.Event) {
 						os.Exit(0)
 					case tcell.KeyRune:
 						if ps.Rune() == ' ' {
+							s.PausedTime += time.Since(start)
 							return
 						}
 				}
@@ -141,14 +146,16 @@ func (s *Screen) Start() {
 
 		s.DrawCells()
 
-				// add the frame
+		// add the frame
 		s.FrameCount++
 
 
 		// make the status bar
 		barStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 
-		barContent := fmt.Sprintf("cell 1 size(%v, %v) FPS: %.2f Time: %.2f Alive: %v      ", s.Width, s.Height, float64(s.FrameCount)/time.Since(s.StartTime).Seconds(), time.Since(s.StartTime).Seconds(), s.CellsAlive)
+		timeElapsed := time.Since(s.StartTime) - s.PausedTime
+
+		barContent := fmt.Sprintf("cell 1 size(%v, %v) FPS: %.2f Time: %.2f Alive: %v      ", s.Width, s.Height, float64(s.FrameCount)/ timeElapsed.Seconds(), timeElapsed.Seconds(), s.CellsAlive)
 
 		s.S.SetContent( 0, s.Height, ' ', []rune(barContent), barStyle)
 
@@ -183,30 +190,6 @@ func NewScreen() ( *Screen, error) {
 		cells[i] = make([]bool, w-2)
 		nextCells[i] = make([]bool, w-2)
 	}
-
-	nextCells[5][5] = true
-	nextCells[5][4] = true
-	nextCells[5][3] = true
-
-	nextCells[20][20] = true
-	nextCells[20][19] = true
-	nextCells[20][18] = true
-
-
-	nextCells[5][10] = true
-	nextCells[5][11] = true
-	nextCells[5][12] = true
-	nextCells[4][9] = true
-	nextCells[4][10] = true
-	nextCells[4][11] = true
-	
-
-	nextCells[5][5] = true
-	nextCells[6][6] = true
-	nextCells[7][7] = true
-	nextCells[8][8] = true
-	nextCells[9][9] = true
-	nextCells[5][6] = true
 
 	return &Screen{
 		Height: h-1,
