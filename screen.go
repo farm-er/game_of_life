@@ -48,14 +48,60 @@ type Screen struct {
 
 	Border *Border
 
+	CellsAlive int
+
+}
+
+func (s *Screen) PauseGame( eventChan chan tcell.Event) {
+
+	for {
+		select {				
+		case ps := <- eventChan:
+			switch ps := ps.(type) {
+				case *tcell.EventKey:
+				switch ps.Key() {
+					case tcell.KeyEsc:
+						s.S.Fini()
+						os.Exit(0)
+					case tcell.KeyRune:
+						if ps.Rune() == ' ' {
+							return
+						}
+				}
+			case *tcell.EventMouse:
+				if (ps.Buttons()&tcell.Button1 != 0) {
+					// if the player clicked on a cell we will draw a cell there
+					
+					x, y := ps.Position()
+
+					if s.NextCells[y-1][x-1] {
+						s.NextCells[y-1][x-1] = false	
+						s.S.SetContent( x, y, ' ', nil, tcell.Style{})
+					}else {
+						s.NextCells[y-1][x-1] = true
+						s.S.SetContent( x, y, ' ', nil, tcell.StyleDefault.Background(tcell.ColorWhite))
+					}
+
+
+					s.S.Show()
+
+				}
+			}
+		default: 
+			// update status bar or something
+			
+		}
+	}
 }
 
 func (s *Screen) Start() {
 	
 	defer s.S.Fini()
+	
+	s.S.EnableMouse()
 
 	s.StartTime = time.Now()
-		
+	
 
 	eventChan := make(chan tcell.Event, 1)
 	
@@ -78,10 +124,16 @@ func (s *Screen) Start() {
 				case tcell.KeyEsc:
 					s.S.Fini()
 					os.Exit(0)
+					
+				case tcell.KeyRune:
+					if ev.Rune() == ' ' {
+						// enter pause mode and stop the game
+						s.PauseGame(eventChan)
+					}
 				}
 			}
 		default:
-			// continue 
+		// continue 
 		}
 
 		start := time.Now()
@@ -96,7 +148,7 @@ func (s *Screen) Start() {
 		// make the status bar
 		barStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 
-		barContent := fmt.Sprintf("cell 1 size(%v, %v) FPS: %.2f", s.Width, s.Height, float64(s.FrameCount)/time.Since(s.StartTime).Seconds())
+		barContent := fmt.Sprintf("cell 1 size(%v, %v) FPS: %.2f Time: %.2f Alive: %v      ", s.Width, s.Height, float64(s.FrameCount)/time.Since(s.StartTime).Seconds(), time.Since(s.StartTime).Seconds(), s.CellsAlive)
 
 		s.S.SetContent( 0, s.Height, ' ', []rune(barContent), barStyle)
 
@@ -111,7 +163,6 @@ func (s *Screen) Start() {
 	}
 
 }
-
 
 func NewScreen() ( *Screen, error) {
 
@@ -150,6 +201,12 @@ func NewScreen() ( *Screen, error) {
 	nextCells[4][11] = true
 	
 
+	nextCells[5][5] = true
+	nextCells[6][6] = true
+	nextCells[7][7] = true
+	nextCells[8][8] = true
+	nextCells[9][9] = true
+	nextCells[5][6] = true
 
 	return &Screen{
 		Height: h-1,
@@ -168,6 +225,8 @@ func NewScreen() ( *Screen, error) {
 	}, nil
 
 }
+
+
 
 func (s *Screen) DrawBoard() {
 
@@ -198,6 +257,8 @@ func (s *Screen) DrawCells() {
 	for i:= range s.Cells {
 		copy(s.Cells[i], s.NextCells[i])
 	}
+
+	s.CellsAlive = 0
 	
 	for i:= range s.Cells {
 		for j:= range s.Cells[i] {
@@ -205,6 +266,7 @@ func (s *Screen) DrawCells() {
 			s.UpdateCellState( i, j)
 
 			if s.NextCells[i][j] {
+				s.CellsAlive++
 				s.S.SetContent( j+1, i+1, value, nil, tcell.StyleDefault.Background(tcell.ColorWhite))
 			}else {
 				s.S.SetContent( j+1, i+1, value, nil, tcell.Style{})
